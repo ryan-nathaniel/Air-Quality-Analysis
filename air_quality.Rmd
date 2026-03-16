@@ -1,0 +1,153 @@
+---
+title: "Air Quality Analysis"
+author: "Ryan Nathaniel"
+date: "2026-03-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Dataset Overview
+
+```{r cars}
+# Load ggplot2 package
+library(ggplot2)
+
+getwd()
+setwd('/Users/ryannathaniel/S2/basic_scRNAseq/Week 2/Assignment')
+
+# Read the data and store it in df
+df <- read.csv("airquality.csv")
+
+# To see the number of records
+nrow(df)
+
+# To see all the variables exist in the data
+names(df)
+```
+
+## Barplot
+This barplot helps visualize how the average environmental conditions differ by month.
+
+```{r}
+# Average calculation for each varible
+mean_ozone <- tapply(df$Ozone, df$Month, mean, na.rm = TRUE)
+mean_solar <- tapply(df$Solar.R, df$Month, mean, na.rm = TRUE)
+mean_wind <- tapply(df$Wind, df$Month, mean, na.rm = TRUE)
+mean_temp <- tapply(df$Temp, df$Month, mean, na.rm = TRUE)
+
+# Create a new data frame for the barplot
+plot_data <- data.frame(
+  month = factor(rep(names(mean_ozone), 4)),
+  var = c(rep("Ozone", 5),
+          rep("Solar.R", 5),
+          rep("Wind", 5),
+          rep("Temp", 5)),
+  val = c(mean_ozone, mean_solar, mean_wind, mean_temp)
+)
+
+# Create the barplot
+ggplot(plot_data, aes(x = month, y = val, fill = var)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Average Value of Each Variable by Month",
+       x = "Month",
+       y = "Average Value",
+       fill = "Variable") +
+  theme_minimal()
+```
+
+## Boxplot
+This boxplot helps visualize the distribution of ozone levels in each month, including the median, spread, and potential outliers.
+
+```{r}
+# Create the boxplot
+ggplot(df, aes(x = factor(Month), y = Ozone)) +
+  geom_boxplot(fill = "white", na.rm = TRUE) +
+  geom_hline(yintercept = 54, linetype = "dashed", color = "red") +
+  annotate("text", x = 5, y = 58, label = "Reference = 54", color = "red") +
+  labs(title = "Distribution of Ozone by Month",
+       x = "Month",
+       y = "Ozone") +
+  theme_minimal()
+```
+
+## PCA
+This PCA plot shows that observations from different months overlap substantially, suggesting that the monthly groups are not completely separated by these variables.
+
+```{r}
+# Select the variables for PCA
+pca_data <- df[, c("Ozone", "Solar.R", "Wind", "Temp")]
+
+# Keep only complete rows
+complete_rows <- complete.cases(pca_data)
+pca_data <- pca_data[complete_rows, ]
+
+# Run PCA
+pca_result <- prcomp(pca_data, scale. = TRUE)
+summary(pca_result)
+
+# Create a data frame for plotting
+pca_plot_data <- data.frame(
+  PC1 = pca_result$x[, 1],
+  PC2 = pca_result$x[, 2],
+  Month = factor(df$Month[complete_rows])
+)
+
+# Create PCA plot
+ggplot(pca_plot_data, aes(x = PC1, y = PC2, color = Month)) +
+  geom_point(size = 3) +
+  labs(title = "PCA Plot for Air Quality",
+       x = "PC1",
+       y = "PC2",
+       color = "Month") +
+  theme_minimal()
+```
+
+## ComplexHeatmap
+This ComplexHeatmap helps summarize the monthly patterns of ozone, solar radiation, wind, and temperature by showing which variables are relatively high or low in each month.
+
+```{r}
+# Load packages
+library(ComplexHeatmap)
+library(circlize)
+
+# Combine into a data frame
+heatmap_data <- data.frame(
+  Ozone = mean_ozone,
+  Solar.R = mean_solar,
+  Wind = mean_wind,
+  Temp = mean_temp
+)
+
+# Sort rows by month
+heatmap_data <- heatmap_data[order(as.numeric(rownames(heatmap_data))), ]
+
+# Convert to matrix
+mat <- as.matrix(heatmap_data)
+
+# Scale the values (Z-score)
+mat_scaled <- scale(mat)
+
+# Set row names
+rownames(mat_scaled) <- paste0("Month ", rownames(heatmap_data))
+
+# Create right annotation for monthly average ozone
+right_ha <- rowAnnotation(
+  AvgOzone = anno_barplot(as.numeric(heatmap_data$Ozone),
+                          gp = gpar(fill = "gray70", col = "black"),
+                          border = FALSE)
+)
+
+# Create heatmap
+Heatmap(mat_scaled,
+        name = "Z-score",
+        right_annotation = right_ha,
+        col = colorRamp2(c(-2, 0, 2), c("blue", "white", "red")),
+        cluster_rows = FALSE,
+        cluster_columns = TRUE,
+        row_title = "Month",
+        column_title = "Monthly Average of Air Quality Variables")
+```
+
