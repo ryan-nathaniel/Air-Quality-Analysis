@@ -16,7 +16,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(ggplot2)
 
 getwd()
-setwd('/Users/ryannathaniel/S2/basic_scRNAseq/Week 2/Assignment')
+setwd('/Users/ryannathaniel/NTU/basic_scRNAseq/Week2/Assignment')
 
 # Read the data and store it in df
 df <- read.csv("airquality.csv")
